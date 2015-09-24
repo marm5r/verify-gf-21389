@@ -5,13 +5,7 @@
     <property name="adminPort" value="4848"/>
     <property name="mvn.home" location="${env.MVN_HOME}"/>
     
-    <property name="fish" value="payara-pre"/>
     <property file="${fish}.properties"/>
-    
-<!--    <property name="fish.zip" location="payara-prerelease.zip"/>
-    <property name="fish.dir" location="payara41"/>
-    <property name="fish.url" value="http://payara.co.s3-website-eu-west-1.amazonaws.com/payara-prerelease.zip"/>-->
-    <!--<property name="fish.url" value="http://download.java.net/glassfish/4.1/release/glassfish-4.1.zip"/>-->
     
     <target name="run" depends="-init-stop-gf, -setup-gf, -run-gf, verify-bug, stop-gf">
         <loadfile property="test.status.notfailed" srcfile="${logfile}">
@@ -73,7 +67,17 @@
         <stop-gf/>
     </target>
     
-    <target name="-init">
+    <target name="-check-fish">
+        <fail message="You have to call the script with either 'ant -Dfish=payara-pre' or 'ant -Dfish=glassfish'">
+            <condition>
+                <not>
+                    <isset property="fish"/>
+                </not>
+            </condition>
+        </fail>
+    </target>
+    
+    <target name="-init" depends="-check-fish">
         <condition property="script-suffix" value=".bat">
             <os family="windows"/>
         </condition>

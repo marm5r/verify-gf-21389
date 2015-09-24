@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="GLASSFISH-21389" default="run" basedir="." xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+
+    <property environment="env"/>
+    <property name="adminPort" value="4848"/>
+    <property name="mvn.home" location="${env.MVN_HOME}"/>
+    
+    <property name="fish" value="payara-pre"/>
+    <property file="${fish}.properties"/>
+    
+<!--    <property name="fish.zip" location="payara-prerelease.zip"/>
+    <property name="fish.dir" location="payara41"/>
+    <property name="fish.url" value="http://payara.co.s3-website-eu-west-1.amazonaws.com/payara-prerelease.zip"/>-->
+    <!--<property name="fish.url" value="http://download.java.net/glassfish/4.1/release/glassfish-4.1.zip"/>-->
+    
+    <target name="run" depends="-init-stop-gf, -setup-gf, -run-gf, verify-bug, stop-gf">
+        <loadfile property="test.status.notfailed" srcfile="${logfile}">
+            <filterchain>
+                <linecontains>
+                    <contains value="WELD-001201: Error loading beans.xml"/>
+                </linecontains>
+            </filterchain>
+        </loadfile>
+        <fail if="test.status.notfailed" message="Test failed! WELD-001201: Error loading beans.xml... found in server.log!"/> 
+    </target>
+    
+    <target name="verify-bug" depends="-init">
+        <patch condition="true"/>
+        <build/>
+        <deploy/>
+        <patch condition="false"/>
+        <build/>
+        <deploy failonerror="false"/>
+    </target>
+    
+    <target name="clean" depends="-init-stop-gf, -init">
+        <clean/>
+        <delete dir="${fish.dir}"/>
+    </target>
+    
+    <target name="clean-all" depends="clean">
+        <delete file="${fish.zip}"/>
+    </target>
+    
+    <target name="-check-gf">
+        <available file="${fish.zip}" property="gfdist.present"/>
+        <available file="${fish.dir}" property="gf.present"/>
+    </target>
+    
+    <target name="-get-gf" depends="-check-gf" unless="gfdist.present">
+        <get src="${fish.url}" dest="."/>
+    </target>
+    
+    <target name="-unzip-gf" depends="-check-gf" unless="gf.present">
+        <unzip src="${fish.zip}" dest="."/>
+    </target>
+    
+    <target name="-setup-gf" depends="-get-gf, -unzip-gf">
+    </target>
+    
+    <target name="-run-gf" depends="-init">
+        <exec executable="${asadmin}" failonerror="${failonerror}">
+            <arg line="start-domain"/>
+            <arg line="domain1"/>
+        </exec>
+    </target>
+    
+    <target name="-init-stop-gf" depends="-init, -check-gf" if="gf.present">
+        <stop-gf failonerror="false"/>
+    </target>
+    
+    <target name="stop-gf" depends="-init">
+        <stop-gf/>
+    </target>
+    
+    <target name="-init">
+        <condition property="script-suffix" value=".bat">
+            <os family="windows"/>
+        </condition>
+        <condition property="script-suffix" value="">
+            <not>
+                <os family="windows"/>
+            </not>
+        </condition>
+        <condition property="path.separator" value=";">
+            <os family="windows"/>
+        </condition>
+        <condition property="path.separator" value=":">
+            <not>
+                <os family="windows"/>
+            </not>
+        </condition>
+        
+        <property name="logfile" location="${fish.dir}/glassfish/domains/domain1/logs/server.log"/>
+        <property name="asadmin" value="${fish.dir}/bin/asadmin${script-suffix}"/>
+        <property name="failonerror" value="true"/>
+        <property name="war" location="webapp/target/webapp-1.0-SNAPSHOT"/>
+        <property name="mvn" value="${mvn.home}/bin/mvn${script-suffix}"/>
+        
+        <delete file="${logfile}" failonerror="false"/>
+        
+        <macrodef name="deploy">
+            <attribute name="failonerror" default="true"/>
+            <sequential>
+                <exec executable="${asadmin}" failonerror="@{failonerror}">
+                    <arg line="-p 4848"/>
+                    <arg line="deploy"/>
+                    <arg line="--force"/>
+                    <arg line="${war}"/>
+                </exec>
+            </sequential>
+        </macrodef>
+        
+        <macrodef name="build">
+            <sequential>
+                <exec executable="${mvn}" failonerror="true">
+                    <arg line="install"/>
+                </exec>
+            </sequential>
+        </macrodef>
+        
+        <macrodef name="clean">
+            <sequential>
+                <exec executable="${mvn}" failonerror="true">
+                    <arg line="clean"/>
+                </exec>
+            </sequential>
+        </macrodef>
+        
+        <macrodef name="stop-gf">
+            <attribute name="failonerror" default="true"/>
+            <sequential>
+                <exec executable="${asadmin}" failonerror="@{failonerror}">
+                    <arg line="stop-domain"/>
+                    <arg line="domain1"/>
+                </exec>
+            </sequential>
+        </macrodef>
+        
+        <macrodef name="patch">
+            <attribute name="condition"/>
+            <sequential>
+                <property name="origFile" location="ejb-dep/src/main/java/ejb/SessionBean.java"/>
+                <copy file="SessionBean.template" tofile="${origFile}" force="true" overwrite="true">
+                    <filterset>
+                        <filter token="CONDITION" value="@{condition}"/>
+                    </filterset>
+                </copy>
+            </sequential>
+        </macrodef>
+    </target>
+    
+
+</project>

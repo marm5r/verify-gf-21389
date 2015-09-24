@@ -1,0 +1,17 @@
+package ejb;
+
+import javax.ejb.Stateless;
+import javax.ejb.LocalBean;
+
+@Stateless
+@LocalBean
+public class SessionBean {
+
+    public String businessMethod() {
+        if (@CONDITION@) {
+            throw new RuntimeException();
+        }
+        return "coolas";
+    }
+
+}
